@@ -32,7 +32,8 @@ Once wired, `mos config-set eth.enable=true` to enable Ethernet (see below).
 "eth": {
   "phy_addr": 0,       // RMII PHY address
   "mdc_gpio": 23,      // GPIO to use for RMII MDC signal
-  "mdio_gpio": 18      // GPIO to use for RMII MDIO signal
+  "mdio_gpio": 18,     // GPIO to use for RMII MDIO signal
+  "power_gpio": 17     // GPIO phy_device_power_enable_via_gpio
 }
 ```
 

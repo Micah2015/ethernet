@@ -16,12 +16,54 @@
 #include "mgos_net.h"
 #include "mgos_net_hal.h"
 #include "mgos_sys_config.h"
+#include "mgos_system.h"
 
 static void eth_config_pins(void) {
   phy_rmii_configure_data_interface_pins();
   phy_rmii_smi_configure_pins(mgos_sys_config_get_eth_mdc_gpio(),
                               mgos_sys_config_get_eth_mdio_gpio());
 }
+
+#ifdef MGOS_PHY_USE_POWER_PIN
+/* This replaces the default PHY power on/off function with one that
+   also uses a GPIO for power on/off.
+
+   If this GPIO is not connected on your device (and PHY is always powered), you can use the default PHY-specific power
+   on/off function rather than overriding with this one.
+*/
+static void phy_device_power_enable_via_gpio(bool enable)
+{
+#if defined(MGOS_ETH_PHY_LAN87x0)
+  #define DEFAULT_ETHERNET_PHY_CONFIG phy_lan8720_default_ethernet_config
+#elif defined(MGOS_ETH_PHY_TLK110)
+  #define DEFAULT_ETHERNET_PHY_CONFIG phy_tlk110_default_ethernet_config 
+#endif
+    assert(DEFAULT_ETHERNET_PHY_CONFIG.phy_power_enable);
+
+    if (!enable) {
+        /* Do the PHY-specific power_enable(false) function before powering down */
+        DEFAULT_ETHERNET_PHY_CONFIG.phy_power_enable(false);
+    }
+
+    gpio_pad_select_gpio(mgos_sys_config_get_eth_power_gpio());
+    gpio_set_direction(mgos_sys_config_get_eth_power_gpio(), GPIO_MODE_OUTPUT);
+    if(enable == true) {
+        gpio_set_level(mgos_sys_config_get_eth_power_gpio(), 1);
+        LOG(LL_INFO, ("phy_device_power_enable(TRUE)") );
+    } else {
+        gpio_set_level(mgos_sys_config_get_eth_power_gpio(), 0);
+        LOG(LL_INFO, ("power_enable(FALSE)") );
+    }
+
+    // Allow the power up/down to take effect, min 300us
+    mgos_msleep(1);
+
+    if (enable) {
+        /* Run the PHY-specific power on operations now the PHY has power */
+        DEFAULT_ETHERNET_PHY_CONFIG.phy_power_enable(true);
+    }
+}
+#endif
 
 bool mgos_ethernet_init(void) {
   bool res = false;
@@ -53,6 +95,12 @@ bool mgos_ethernet_init(void) {
   config.phy_addr = mgos_sys_config_get_eth_phy_addr();
   config.gpio_config = eth_config_pins;
   config.tcpip_input = tcpip_adapter_eth_input;
+
+#ifdef MGOS_PHY_USE_POWER_PIN
+    /* Replace the default 'power enable' function with an example-specific
+       one that toggles a power GPIO. */
+    config.phy_power_enable = phy_device_power_enable_via_gpio;
+#endif
 
   esp_err_t ret = esp_eth_init(&config);
   if (ret != ESP_OK) {

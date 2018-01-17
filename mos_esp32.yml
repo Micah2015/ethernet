@@ -6,6 +6,10 @@ cdefs:
   MGOS_ETH_PHY_LAN87x0: 1
   # MGOS_ETH_PHY_TLK110: 1
 
+  MGOS_PHY_USE_POWER_PIN: 1
+
 config_schema:
   - ["eth.mdc_gpio", "i", 23, {title: "GPIO to use for RMII MDC signal"}]
   - ["eth.mdio_gpio", "i", 18, {title: "GPIO to use for RMII MDIO signal"}]
+
+  - ["eth.power_gpio", "i", 17, {title: "GPIO phy_device_power_enable_via_gpio"}]
